@@ -1,0 +1,70 @@
+name: Test Installers
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test-windows:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: List repository files
+      run: dir
+
+    - name: Install Chocolatey (if needed)
+      run: |
+        Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
+        iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
+
+    - name: Run Windows installation script
+      run: |
+        Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+        .\install-Windows.ps1
+
+    - name: Verify installation
+      run: docker ps
+
+    - name: Uninstall Windows installation
+      run: |
+        Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+        .\uninstall-Windows.ps1
+
+    - name: Verify uninstallation
+      run: docker ps
+
+  test-macos:
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: List directory contents
+      run: ls -l
+
+    - name: Install Homebrew (if needed)
+      run: |
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+    - name: Ensure script is executable
+      run: chmod +x install-MacOS.sh
+
+    - name: Run Mac installation script
+      run: bash install-MacOS.sh
+
+    - name: Verify installation
+      run: docker ps
+
+    - name: Uninstall Mac installation
+      run: bash uninstall-MacOS.sh
+
+    - name: Verify uninstallation
+      run: docker ps
