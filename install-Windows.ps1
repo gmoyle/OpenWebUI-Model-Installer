@@ -55,51 +55,34 @@ Write-Host "Pulling Docker images..."
 docker pull ollama/ollama
 docker pull ghcr.io/open-webui/open-webui:main
 
-# Skip waiting for Ollama if running in CI (check the CI environment variable)
-$CI = $env:CI
+# Start Ollama container
+Write-Host "Starting Ollama container..."
+docker run -d --name ollama --restart unless-stopped -v "${OLLAMA_DATA_PATH}:/root/.ollama" -p 11434:11434 --network bridge ollama/ollama
 
-if ($CI -eq $null) {
-    Write-Host "Starting Ollama container..."
-    docker run -d --name ollama --restart unless-stopped -v "$OLLAMA_DATA_PATH:/root/.ollama" -p 11434:11434 --network bridge ollama/ollama
-
-    # Wait for Ollama to be ready
-    $tries = 0
-    while ($tries -lt 30) {
-        $tries++
-        try {
-            $response = Invoke-WebRequest -Uri "http://localhost:11434/api/tags" -UseBasicP
-            if ($response.StatusCode -eq 200) {
-                Write-Host "Ollama is ready!"
-                break
-            }
-        }
-        catch {
-            Write-Host "Waiting for Ollama to be ready..."
-            Start-Sleep -Seconds 1
-        }
+# Wait for Ollama to be ready
+Write-Host "Waiting for Ollama to start..."
+$tries = 0
+while ($tries -lt 30) {
+    $response = curl -s http://localhost:11434/api/tags
+    if ($response) {
+        Write-Host "Ollama is ready!"
+        break
     }
-
-    if ($tries -ge 30) {
-        Write-Error "Ollama failed to start after multiple attempts."
-        exit 1
-    }
-} else {
-    Write-Host "Running in CI. Skipping waiting for Ollama."
+    $tries++
+    Start-Sleep -Seconds 2
+}
+if ($tries -ge 30) {
+    Write-Error "Ollama did not start in time."
+    exit 1
 }
 
 # Pull the selected model
 Write-Host "Pulling model: $MODEL ..."
-try {
-    Invoke-WebRequest -Uri "http://localhost:11434/api/pull" -Method POST -Body '{"model":"$MODEL"}' -Headers @{ 'Content-Type' = 'application/json' }
-}
-catch {
-    Write-Error "Failed to pull model $MODEL."
-    exit 1
-}
+ollama pull $MODEL
 
 # Start Open WebUI container
 Write-Host "Starting Open WebUI container..."
-docker run -d --name openwebui --restart unless-stopped -v "$OPENWEBUI_DATA_PATH:/app/backend/data" -e "OLLAMA_API_BASE_URL=http://localhost:11434" -p 3000:3000 --network bridge ghcr.io/open-webui/open-webui:main
+docker run -d --name openwebui --restart unless-stopped -v "${OPENWEBUI_DATA_PATH}:/app/backend/data" -e "OLLAMA_API_BASE_URL=http://localhost:11434" -p 3000:3000 --network bridge ghcr.io/open-webui/open-webui:main
 
 Write-Host "✅ Setup complete!"
-Write-Host "Visit: http://localhost:3000"
+Write-Host "Visit OpenWebUI at: http://localhost:3000"
