@@ -12,44 +12,52 @@ MODEL="phi3" # Default model, can be changed in script
 DEFAULT_OPENWEBUI_DATA=~/openwebui-data
 DEFAULT_OLLAMA_DATA=~/ollama-data
 
-# Prompt for model
-echo "Select a model by number (1-4):"
-echo "1) phi3        - ⚡⚡⚡⚡ Very Fast | 3.8B | ~4GB RAM"
-echo "2) mistral     - ⚡⚡ Moderate    | 7B   | ~8GB RAM"
-echo "3) llama3      - ⚡  Slower      | 8B   | ~8GB+ RAM"
-echo "4) codellama   - 🐌 Slowest     | 13B  | ~12GB+ RAM"
-echo ""
-read -p "Your choice [1-4]: " model_choice
+# Check if running in GitHub Actions (non-interactive environment)
+if [ -z "$CI" ]; then
+  # Prompt for model only if not in CI/CD (interactive)
+  echo "Select a model by number (1-4):"
+  echo "1) phi3        - ⚡⚡⚡⚡ Very Fast | 3.8B | ~4GB RAM"
+  echo "2) mistral     - ⚡⚡ Moderate    | 7B   | ~8GB RAM"
+  echo "3) llama3      - ⚡  Slower      | 8B   | ~8GB+ RAM"
+  echo "4) codellama   - 🐌 Slowest     | 13B  | ~12GB+ RAM"
+  echo ""
+  read -p "Your choice [1-4]: " model_choice
 
-case $model_choice in
-    1)
-        MODEL="phi3"
-        ;;
-    2)
-        MODEL="mistral"
-        ;;
-    3)
-        MODEL="llama3"
-        ;;
-    4)
-        MODEL="codellama"
-        ;;
-    *)
-        echo "Invalid choice, defaulting to phi3."
-        MODEL="phi3"
-        ;;
-esac
+  case $model_choice in
+      1)
+          MODEL="phi3"
+          ;;
+      2)
+          MODEL="mistral"
+          ;;
+      3)
+          MODEL="llama3"
+          ;;
+      4)
+          MODEL="codellama"
+          ;;
+      *)
+          echo "Invalid choice, defaulting to phi3."
+          MODEL="phi3"
+          ;;
+  esac
+else
+  # For CI/CD, just default to "phi3" model
+  echo "Running in CI/CD, defaulting to model: phi3"
+  MODEL="phi3"
+fi
 
 echo "You selected: $MODEL"
 echo ""
 
+# Set data paths (default values or from environment variables)
 read -e -p "Enter path for OpenWebUI data [$DEFAULT_OPENWEBUI_DATA]: " OPENWEBUI_DATA_PATH
 OPENWEBUI_DATA_PATH=${OPENWEBUI_DATA_PATH:-~/openwebui-data}
 
 read -e -p "Enter path for Ollama data [$DEFAULT_OLLAMA_DATA]: " OLLAMA_DATA_PATH
 OLLAMA_DATA_PATH=${OLLAMA_DATA_PATH:-~/ollama-data}
 
-# Expand ~
+# Expand ~ for paths
 OPENWEBUI_DATA_PATH=$(eval echo $OPENWEBUI_DATA_PATH)
 OLLAMA_DATA_PATH=$(eval echo $OLLAMA_DATA_PATH)
 
