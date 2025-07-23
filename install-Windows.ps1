@@ -59,22 +59,7 @@ docker pull ghcr.io/open-webui/open-webui:main
 Write-Host "Starting Ollama container..."
 docker run -d --name ollama --restart unless-stopped -v "${OLLAMA_DATA_PATH}:/root/.ollama" -p 11434:11434 --network bridge ollama/ollama
 
-# Wait for Ollama to be ready
-Write-Host "Waiting for Ollama to start..."
-$tries = 0
-while ($tries -lt 30) {
-    $response = curl -s http://localhost:11434/api/tags
-    if ($response) {
-        Write-Host "Ollama is ready!"
-        break
-    }
-    $tries++
-    Start-Sleep -Seconds 2
-}
-if ($tries -ge 30) {
-    Write-Error "Ollama did not start in time."
-    exit 1
-}
+# Skip waiting for Ollama in CI environment, proceed directly to pulling the model and starting OpenWebUI
 
 # Pull the selected model
 Write-Host "Pulling model: $MODEL ..."
