@@ -24,5 +24,8 @@ jobs:
       run: |
         Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
         iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
-    
-    - name:
+
+    - name: Run Windows Installer Script
+      run: |
+        powershell.exe -ExecutionPolicy Bypass -File .\install-windows.ps1
+      # Make sure install-windows.ps1 exists in your repo root or update the path accordingly
