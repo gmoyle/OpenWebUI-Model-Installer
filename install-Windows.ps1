@@ -1,117 +1,105 @@
-#!/bin/bash
+# install-Windows.ps1
 
-set -e
+# Check for Docker and its status
+if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
+    Write-Error "Docker is not installed. Please install Docker Desktop for Windows."
+    exit 1
+}
 
-INSTALL_DIR="$(pwd)"
-DATA_DIR="$HOME/openwebui-ollama-data"
-DOCKER_COMPOSE_YML="$INSTALL_DIR/docker-compose.yml"
-VOLUME_NAME="ollama_data"
-MODEL="phi3" # Default model, can be changed in script
+# Check if Docker is running
+try {
+    $dockerInfo = docker info
+} catch {
+    Write-Error "Docker is not running. Please start Docker Desktop for Windows."
+    exit 1
+}
 
-# Set paths
-DEFAULT_OPENWEBUI_DATA=~/openwebui-data
-DEFAULT_OLLAMA_DATA=~/ollama-data
+# Define variables
+$INSTALL_DIR = Get-Location
+$DATA_DIR = "$env:USERPROFILE\openwebui-ollama-data"
+$MODEL = "phi3"  # Default model
+$DOCKER_COMPOSE_YML = "$INSTALL_DIR\docker-compose.yml"
 
-# Check if running in GitHub Actions (non-interactive environment)
-if [ -z "$CI" ]; then
-  # Prompt for model only if not in CI/CD (interactive)
-  echo "Select a model by number (1-4):"
-  echo "1) phi3        - ⚡⚡⚡⚡ Very Fast | 3.8B | ~4GB RAM"
-  echo "2) mistral     - ⚡⚡ Moderate    | 7B   | ~8GB RAM"
-  echo "3) llama3      - ⚡  Slower      | 8B   | ~8GB+ RAM"
-  echo "4) codellama   - 🐌 Slowest     | 13B  | ~12GB+ RAM"
-  echo ""
-  read -p "Your choice [1-4]: " model_choice
+# Prompt for model selection
+Write-Host "Select a model by number (1-4):"
+Write-Host "1) phi3        - ⚡⚡⚡⚡ Very Fast | 3.8B | ~4GB RAM"
+Write-Host "2) mistral     - ⚡⚡ Moderate    | 7B   | ~8GB RAM"
+Write-Host "3) llama3      - ⚡  Slower      | 8B   | ~8GB+ RAM"
+Write-Host "4) codellama   - 🐌 Slowest     | 13B  | ~12GB+ RAM"
+$ModelChoice = Read-Host "Your choice [1-4]"
 
-  case $model_choice in
-      1)
-          MODEL="phi3"
-          ;;
-      2)
-          MODEL="mistral"
-          ;;
-      3)
-          MODEL="llama3"
-          ;;
-      4)
-          MODEL="codellama"
-          ;;
-      *)
-          echo "Invalid choice, defaulting to phi3."
-          MODEL="phi3"
-          ;;
-  esac
-else
-  # For CI/CD, just default to "phi3" model
-  echo "Running in CI/CD, defaulting to model: phi3"
-  MODEL="phi3"
-fi
+switch ($ModelChoice) {
+    1 { $MODEL = "phi3" }
+    2 { $MODEL = "mistral" }
+    3 { $MODEL = "llama3" }
+    4 { $MODEL = "codellama" }
+    default { Write-Host "Invalid choice, defaulting to phi3."; $MODEL = "phi3" }
+}
 
-echo "You selected: $MODEL"
-echo ""
+Write-Host "You selected: $MODEL"
 
-# Set data paths (default values or from environment variables)
-read -e -p "Enter path for OpenWebUI data [$DEFAULT_OPENWEBUI_DATA]: " OPENWEBUI_DATA_PATH
-OPENWEBUI_DATA_PATH=${OPENWEBUI_DATA_PATH:-~/openwebui-data}
+# Prompt for custom data directories
+$OPENWEBUI_DATA_PATH = Read-Host "Enter path for OpenWebUI data [$env:USERPROFILE\openwebui-data]"
+if (-not $OPENWEBUI_DATA_PATH) { $OPENWEBUI_DATA_PATH = "$env:USERPROFILE\openwebui-data" }
 
-read -e -p "Enter path for Ollama data [$DEFAULT_OLLAMA_DATA]: " OLLAMA_DATA_PATH
-OLLAMA_DATA_PATH=${OLLAMA_DATA_PATH:-~/ollama-data}
+$OLLAMA_DATA_PATH = Read-Host "Enter path for Ollama data [$env:USERPROFILE\ollama-data]"
+if (-not $OLLAMA_DATA_PATH) { $OLLAMA_DATA_PATH = "$env:USERPROFILE\ollama-data" }
 
-# Expand ~ for paths
-OPENWEBUI_DATA_PATH=$(eval echo $OPENWEBUI_DATA_PATH)
-OLLAMA_DATA_PATH=$(eval echo $OLLAMA_DATA_PATH)
-
-# Create directories
-echo ""
-echo "Creating data directories..."
-mkdir -p "$OPENWEBUI_DATA_PATH"
-mkdir -p "$OLLAMA_DATA_PATH"
+# Create necessary directories if they do not exist
+Write-Host "Creating data directories..."
+if (-not (Test-Path $OPENWEBUI_DATA_PATH)) { New-Item -ItemType Directory -Force -Path $OPENWEBUI_DATA_PATH }
+if (-not (Test-Path $OLLAMA_DATA_PATH)) { New-Item -ItemType Directory -Force -Path $OLLAMA_DATA_PATH }
 
 # Pull Docker images
-echo ""
-echo "Pulling Docker images..."
+Write-Host "Pulling Docker images..."
 docker pull ollama/ollama
 docker pull ghcr.io/open-webui/open-webui:main
 
-# Start Ollama container
-echo ""
-echo "Starting Ollama container..."
-docker run -d \
-  --name ollama \
-  --restart unless-stopped \
-  -v "$OLLAMA_DATA_PATH:/root/.ollama" \
-  -p 11434:11434 \
-  --network bridge \
-  ollama/ollama || echo "Ollama container already running or failed to start. Continuing..."
+# Skip waiting for Ollama if running in CI (check the CI environment variable)
+$CI = $env:CI
 
-# Skip waiting for Ollama in CI/CD environment
-if [ -z "$CI" ]; then
-  # Wait for Ollama to be ready if not running in CI/CD
-  echo ""
-  echo "Waiting for Ollama to start..."
-  until curl -s http://localhost:11434/api/tags >/dev/null; do
-    sleep 1
-  done
-fi
+if ($CI -eq $null) {
+    Write-Host "Starting Ollama container..."
+    docker run -d --name ollama --restart unless-stopped -v "$OLLAMA_DATA_PATH:/root/.ollama" -p 11434:11434 --network bridge ollama/ollama
+
+    # Wait for Ollama to be ready
+    $tries = 0
+    while ($tries -lt 30) {
+        $tries++
+        try {
+            $response = Invoke-WebRequest -Uri "http://localhost:11434/api/tags" -UseBasicP
+            if ($response.StatusCode -eq 200) {
+                Write-Host "Ollama is ready!"
+                break
+            }
+        }
+        catch {
+            Write-Host "Waiting for Ollama to be ready..."
+            Start-Sleep -Seconds 1
+        }
+    }
+
+    if ($tries -ge 30) {
+        Write-Error "Ollama failed to start after multiple attempts."
+        exit 1
+    }
+} else {
+    Write-Host "Running in CI. Skipping waiting for Ollama."
+}
 
 # Pull the selected model
-echo ""
-echo "Pulling model: $MODEL ..."
-ollama pull "$MODEL"
+Write-Host "Pulling model: $MODEL ..."
+try {
+    Invoke-WebRequest -Uri "http://localhost:11434/api/pull" -Method POST -Body '{"model":"$MODEL"}' -Headers @{ 'Content-Type' = 'application/json' }
+}
+catch {
+    Write-Error "Failed to pull model $MODEL."
+    exit 1
+}
 
 # Start Open WebUI container
-echo ""
-echo "Starting Open WebUI container..."
-docker run -d \
-  --name openwebui \
-  --restart unless-stopped \
-  -v "$OPENWEBUI_DATA_PATH:/app/backend/data" \
-  -e "OLLAMA_API_BASE_URL=http://localhost:11434" \
-  -p 3000:3000 \
-  --network bridge \
-  ghcr.io/open-webui/open-webui:main
+Write-Host "Starting Open WebUI container..."
+docker run -d --name openwebui --restart unless-stopped -v "$OPENWEBUI_DATA_PATH:/app/backend/data" -e "OLLAMA_API_BASE_URL=http://localhost:11434" -p 3000:3000 --network bridge ghcr.io/open-webui/open-webui:main
 
-# Completion
-echo ""
-echo "✅ Setup complete!"
-echo "Visit: http://localhost:3000"
+Write-Host "✅ Setup complete!"
+Write-Host "Visit: http://localhost:3000"
