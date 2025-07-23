@@ -46,6 +46,7 @@ The script will handle everything, including Docker container setup, directory c
       ```
 
 The script will automatically set up Docker, configure containers, and start the services for **OpenWebUI** and **Ollama**.
+<img width="485" height="212" alt="image" src="https://github.com/user-attachments/assets/98184fc5-66dc-4660-bd8f-235d308dab26" />
 
 ---
 
