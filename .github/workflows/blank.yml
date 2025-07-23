@@ -24,7 +24,8 @@ jobs:
     - name: Run Windows installation script
       run: |
         Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
-        ./install-windows.ps1
+        # Ensure the path is correct and use the full script path
+        .\install-windows.ps1
     
     - name: Verify installation
       run: |
@@ -33,7 +34,8 @@ jobs:
     - name: Uninstall Windows installation
       run: |
         Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
-        ./uninstall-windows.ps1
+        # Ensure the path is correct and use the full script path
+        .\uninstall-windows.ps1
     
     - name: Verify uninstallation
       run: |
