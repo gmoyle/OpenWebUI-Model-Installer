@@ -4,7 +4,6 @@ This repository provides **installation** and **uninstallation scripts** for set
 
 ## Table of Contents
 
-- [Prerequisites](#prerequisites)
 - [Installation](#installation)
   - [Windows](#windows)
   - [Mac](#mac)
@@ -16,34 +15,13 @@ This repository provides **installation** and **uninstallation scripts** for set
 
 ---
 
-## Prerequisites
-
-Before running the installation scripts, make sure the following are installed:
-
-- **Docker**: You must have **Docker Desktop** installed and running on your machine. 
-  - [Download Docker Desktop](https://www.docker.com/products/docker-desktop)
-- **WSL2 (Windows only)**: For Windows, WSL2 (Windows Subsystem for Linux) is required.
-  - [Install WSL2](https://docs.microsoft.com/en-us/windows/wsl/install)
-
-### Dependencies for Windows:
-
-- **Chocolatey** (for Windows package management):
-  - [Install Chocolatey](https://chocolatey.org/install)
-
-### Dependencies for Mac:
-
-- **Homebrew** (for package management on macOS):
-  - [Install Homebrew](https://brew.sh/)
-
----
-
 ## Installation
 
 ### Windows
 
-1. **Ensure Docker is installed**: The script will check if Docker is installed. If it's not, it will automatically install Docker Desktop via **Chocolatey**.
-2. **Check for WSL2**: The script will check if WSL2 is installed. If not, it will prompt you to install it.
-3. **Install necessary components**: The script will install and configure all dependencies automatically, including Docker, WSL2, and any necessary packages.
+1. **Automatic Docker Installation**: The script will check if Docker is installed. If it's not, the script will automatically install Docker Desktop using **Chocolatey**.
+2. **Automatic WSL2 Installation**: The script will ensure **WSL2** is installed, or it will install it automatically if missing.
+3. **Automatic Setup**: The script will configure Docker, WSL2, and all dependencies automatically. There’s no need to manually install anything.
 4. **Run the installation script**:
     - Download the Windows installation script (`install-windows.ps1`).
     - Open **PowerShell** as **Administrator**.
@@ -53,12 +31,12 @@ Before running the installation scripts, make sure the following are installed:
       ./install-windows.ps1
       ```
 
-The script will automatically handle Docker container setup, directory creation, and model selection based on your available memory.
+The script will handle everything, including Docker container setup, directory creation, and model selection based on your available memory.
 
 ### Mac
 
-1. **Ensure Docker is installed**: The script will check if Docker is installed. If it's not, it will prompt you to install Docker.
-2. **Install necessary components**: The script will automatically install dependencies using **Homebrew**.
+1. **Automatic Docker Installation**: The script will check if Docker is installed. If it's not, the script will automatically prompt you to install Docker.
+2. **Automatic Setup**: The script will install all necessary dependencies using **Homebrew**.
 3. **Run the installation script**:
     - Download the Mac installation script (`install-mac.sh`).
     - Open **Terminal** and navigate to the directory where you saved the script.
@@ -114,7 +92,7 @@ If you run into any issues during installation or uninstallation, the following 
    - Ensure **Docker Desktop** is running. If it’s not, start Docker and try again.
    
 2. **WSL2 Configuration (Windows Only)**:
-   - Ensure that **WSL2** is correctly installed. The script will prompt you if WSL2 is missing.
+   - If **WSL2** is not installed, the script will automatically install it for you.
    
 3. **Disk Space**:
    - Ensure you have enough disk space (at least 30GB free) for Docker containers to function smoothly.
@@ -130,7 +108,7 @@ If you run into any issues during installation or uninstallation, the following 
 - **A**: No, the script will automatically install Docker if it's not already installed. For Windows, it uses **Chocolatey** to install Docker Desktop, and for macOS, it uses **Homebrew**.
 
 ### **Q: What if I don’t have **WSL2** (Windows Only)?**
-- **A**: If WSL2 is not installed, the script will prompt you to install it automatically using the `wsl --install` command.
+- **A**: If **WSL2** is not installed, the script will automatically install it for you.
 
 ### **Q: What happens if I run the script without administrator rights?**
 - **A**: If you don't run the script as **Administrator** on Windows, it will prompt you to do so. On macOS, you’ll be asked to use `sudo` if necessary.
