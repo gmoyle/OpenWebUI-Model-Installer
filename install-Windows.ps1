@@ -1,82 +1,117 @@
-# install-Windows.ps1
+#!/bin/bash
 
-# Function to check if a command exists
-function Command-Exists {
-    param([string]$command)
-    return (Get-Command $command -ErrorAction SilentlyContinue) -ne $null
-}
+set -e
 
-# Ensure Docker is installed and running
-Write-Host "`n🔍 Checking Docker installation..."
-if (!(Command-Exists "docker")) {
-    Write-Error "❌ Docker is not installed. Please install Docker Desktop for Windows and try again."
-    exit 1
-}
+INSTALL_DIR="$(pwd)"
+DATA_DIR="$HOME/openwebui-ollama-data"
+DOCKER_COMPOSE_YML="$INSTALL_DIR/docker-compose.yml"
+VOLUME_NAME="ollama_data"
+MODEL="phi3" # Default model, can be changed in script
 
-try {
-    docker info | Out-Null
-} catch {
-    Write-Error "❌ Docker is installed but not running. Please start Docker Desktop and try again."
-    exit 1
-}
+# Set paths
+DEFAULT_OPENWEBUI_DATA=~/openwebui-data
+DEFAULT_OLLAMA_DATA=~/ollama-data
 
-# Model options
-$models = @{
-    "1" = @{ name = "phi3";      desc = "⚡⚡⚡⚡ Very Fast | 3.8B | ~4GB RAM" }
-    "2" = @{ name = "mistral";   desc = "⚡⚡ Moderate    | 7B   | ~8GB RAM" }
-    "3" = @{ name = "llama3";    desc = "⚡  Slower      | 8B   | ~8GB+ RAM" }
-    "4" = @{ name = "codellama"; desc = "🐌 Slowest     | 13B  | ~12GB+ RAM" }
-}
+# Check if running in GitHub Actions (non-interactive environment)
+if [ -z "$CI" ]; then
+  # Prompt for model only if not in CI/CD (interactive)
+  echo "Select a model by number (1-4):"
+  echo "1) phi3        - ⚡⚡⚡⚡ Very Fast | 3.8B | ~4GB RAM"
+  echo "2) mistral     - ⚡⚡ Moderate    | 7B   | ~8GB RAM"
+  echo "3) llama3      - ⚡  Slower      | 8B   | ~8GB+ RAM"
+  echo "4) codellama   - 🐌 Slowest     | 13B  | ~12GB+ RAM"
+  echo ""
+  read -p "Your choice [1-4]: " model_choice
 
-Write-Host "`n🤖 Available Ollama models to auto-pull:`n"
-foreach ($key in $models.Keys) {
-    $model = $models[$key]
-    Write-Host "$key) $($model.name) - $($model.desc)"
-}
+  case $model_choice in
+      1)
+          MODEL="phi3"
+          ;;
+      2)
+          MODEL="mistral"
+          ;;
+      3)
+          MODEL="llama3"
+          ;;
+      4)
+          MODEL="codellama"
+          ;;
+      *)
+          echo "Invalid choice, defaulting to phi3."
+          MODEL="phi3"
+          ;;
+  esac
+else
+  # For CI/CD, just default to "phi3" model
+  echo "Running in CI/CD, defaulting to model: phi3"
+  MODEL="phi3"
+fi
 
-$modelChoice = Read-Host "`nSelect a model by number (default: 1)"
-if (-not $modelChoice -or -not $models.ContainsKey($modelChoice)) {
-    Write-Host "⚠️ No valid choice entered, defaulting to model 1 (phi3)."
-    $modelChoice = "1"
-}
-$selectedModel = $models[$modelChoice].name
+echo "You selected: $MODEL"
+echo ""
 
-# Function to check if Ollama container is running
-function Wait-For-Container {
-    param([string]$containerName, [int]$timeoutSec = 30)
+# Set data paths (default values or from environment variables)
+read -e -p "Enter path for OpenWebUI data [$DEFAULT_OPENWEBUI_DATA]: " OPENWEBUI_DATA_PATH
+OPENWEBUI_DATA_PATH=${OPENWEBUI_DATA_PATH:-~/openwebui-data}
 
-    $endTime = (Get-Date).AddSeconds($timeoutSec)
-    while ((Get-Date) -lt $endTime) {
-        $status = docker inspect -f '{{.State.Status}}' $containerName
-        if ($status -eq "running") {
-            Write-Host "✅ $containerName is running."
-            return $true
-        }
-        Write-Host "⏳ Waiting for $containerName to start..."
-        Start-Sleep -Seconds 5
-    }
+read -e -p "Enter path for Ollama data [$DEFAULT_OLLAMA_DATA]: " OLLAMA_DATA_PATH
+OLLAMA_DATA_PATH=${OLLAMA_DATA_PATH:-~/ollama-data}
 
-    Write-Error "❌ $containerName did not start within $timeoutSec seconds."
-    return $false
-}
+# Expand ~ for paths
+OPENWEBUI_DATA_PATH=$(eval echo $OPENWEBUI_DATA_PATH)
+OLLAMA_DATA_PATH=$(eval echo $OLLAMA_DATA_PATH)
 
-# Start the Ollama container
-Write-Host "`n🚀 Starting Ollama container..."
-docker run -d --name ollama -p 11434:11434 --restart unless-stopped ollama/ollama
+# Create directories
+echo ""
+echo "Creating data directories..."
+mkdir -p "$OPENWEBUI_DATA_PATH"
+mkdir -p "$OLLAMA_DATA_PATH"
 
-# Wait for Ollama container to be fully running
-if (-not (Wait-For-Container -containerName "ollama" -timeoutSec 60)) {
-    Write-Error "❌ Ollama container failed to start in time."
-    exit 1
-}
+# Pull Docker images
+echo ""
+echo "Pulling Docker images..."
+docker pull ollama/ollama
+docker pull ghcr.io/open-webui/open-webui:main
 
-# Now send the request to pull the model
-Write-Host "`n📥 Sending model pull command to Ollama backend..."
-Invoke-WebRequest -Uri "http://localhost:11434/api/pull" -Method POST -Body (@{ name = "$selectedModel" } | ConvertTo-Json) -ContentType "application/json" | Out-Null
-Write-Host "✅ Model pull request sent successfully."
+# Start Ollama container
+echo ""
+echo "Starting Ollama container..."
+docker run -d \
+  --name ollama \
+  --restart unless-stopped \
+  -v "$OLLAMA_DATA_PATH:/root/.ollama" \
+  -p 11434:11434 \
+  --network bridge \
+  ollama/ollama || echo "Ollama container already running or failed to start. Continuing..."
 
-# Clean up any old containers
-Write-Host "`n🧹 Stopping and removing any existing containers named 'ollama' or 'open-webui'..."
-docker rm -f ollama open-webui
+# Skip waiting for Ollama in CI/CD environment
+if [ -z "$CI" ]; then
+  # Wait for Ollama to be ready if not running in CI/CD
+  echo ""
+  echo "Waiting for Ollama to start..."
+  until curl -s http://localhost:11434/api/tags >/dev/null; do
+    sleep 1
+  done
+fi
 
-Write-Host "`n🎉 Installation complete! The OpenWebUI and Ollama containers should now be running."
+# Pull the selected model
+echo ""
+echo "Pulling model: $MODEL ..."
+ollama pull "$MODEL"
+
+# Start Open WebUI container
+echo ""
+echo "Starting Open WebUI container..."
+docker run -d \
+  --name openwebui \
+  --restart unless-stopped \
+  -v "$OPENWEBUI_DATA_PATH:/app/backend/data" \
+  -e "OLLAMA_API_BASE_URL=http://localhost:11434" \
+  -p 3000:3000 \
+  --network bridge \
+  ghcr.io/open-webui/open-webui:main
+
+# Completion
+echo ""
+echo "✅ Setup complete!"
+echo "Visit: http://localhost:3000"
