@@ -41,28 +41,42 @@ if (-not $modelChoice -or -not $models.ContainsKey($modelChoice)) {
 }
 $selectedModel = $models[$modelChoice].name
 
-# Pull model from Ollama
-Write-Host "`n📦 Pulling model '$selectedModel' from Ollama..."
-docker pull "ollama/$selectedModel" || Write-Host "⚠️ Model will be pulled on first use if not found."
+# Function to check if Ollama container is running
+function Wait-For-Container {
+    param([string]$containerName, [int]$timeoutSec = 30)
 
-# Clean up any old containers
-Write-Host "`n🧹 Stopping and removing any existing containers named 'ollama' or 'open-webui'..."
-docker rm -f ollama open-webui 2>$null
+    $endTime = (Get-Date).AddSeconds($timeoutSec)
+    while ((Get-Date) -lt $endTime) {
+        $status = docker inspect -f '{{.State.Status}}' $containerName
+        if ($status -eq "running") {
+            Write-Host "✅ $containerName is running."
+            return $true
+        }
+        Write-Host "⏳ Waiting for $containerName to start..."
+        Start-Sleep -Seconds 5
+    }
 
-# Run Ollama
+    Write-Error "❌ $containerName did not start within $timeoutSec seconds."
+    return $false
+}
+
+# Start the Ollama container
 Write-Host "`n🚀 Starting Ollama container..."
 docker run -d --name ollama -p 11434:11434 --restart unless-stopped ollama/ollama
 
-# Wait a moment for it to be ready
-Start-Sleep -Seconds 5
+# Wait for Ollama container to be fully running
+if (-not (Wait-For-Container -containerName "ollama" -timeoutSec 60)) {
+    Write-Error "❌ Ollama container failed to start in time."
+    exit 1
+}
 
-# Run Open WebUI
-Write-Host "`n🌐 Starting Open WebUI container (http://localhost:3000)..."
-docker run -d --name open-webui --network=host --restart unless-stopped -e OLLAMA_BASE_URL=http://localhost:11434 ghcr.io/open-webui/open-webui:main
-
-# Optional: auto-pull selected model in Ollama container
+# Now send the request to pull the model
 Write-Host "`n📥 Sending model pull command to Ollama backend..."
 Invoke-WebRequest -Uri "http://localhost:11434/api/pull" -Method POST -Body (@{ name = "$selectedModel" } | ConvertTo-Json) -ContentType "application/json" | Out-Null
+Write-Host "✅ Model pull request sent successfully."
 
-Write-Host "`n✅ Setup complete! Access Open WebUI at: http://localhost:3000"
-Write-Host "You can also use Ollama locally at: http://localhost:11434"
+# Clean up any old containers
+Write-Host "`n🧹 Stopping and removing any existing containers named 'ollama' or 'open-webui'..."
+docker rm -f ollama open-webui
+
+Write-Host "`n🎉 Installation complete! The OpenWebUI and Ollama containers should now be running."
