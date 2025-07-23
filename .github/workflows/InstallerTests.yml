@@ -35,7 +35,7 @@ jobs:
     - name: Uninstall Windows installation
       run: |
         Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
-        .\uninstall-windows.ps1
+        .\uninstall-Windows.ps1
 
     - name: Verify uninstallation
       run: docker ps
@@ -58,7 +58,7 @@ jobs:
       run: chmod +x install-mac.sh
 
     - name: Run Mac installation script
-      run: bash install-mac.sh
+      run: bash install-MacOS.sh
 
     - name: Verify installation
       run: docker ps
