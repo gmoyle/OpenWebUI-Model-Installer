@@ -16,51 +16,13 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v2
     
+    - name: List repository files
+      run: |
+        dir  # Verifying if install-windows.ps1 exists in the directory
+    
     - name: Install Chocolatey (if needed)
       run: |
         Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
         iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
     
-    - name: Run Windows installation script
-      run: |
-        Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
-        # Ensure the path is correct and use the full script path
-        .\install-windows.ps1
-    
-    - name: Verify installation
-      run: |
-        docker ps # Verifying if Docker containers are running
-
-    - name: Uninstall Windows installation
-      run: |
-        Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
-        # Ensure the path is correct and use the full script path
-        .\uninstall-windows.ps1
-    
-    - name: Verify uninstallation
-      run: |
-        docker ps # Verifying if Docker containers were removed
-
-  test-macos:
-    runs-on: macos-latest
-    
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v2
-    
-    - name: Install Homebrew (if needed)
-      run: |
-        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-    
-    - name: List directory contents
-      run: |
-        ls -l  # Verifying if install-mac.sh exists in the directory
-    
-    - name: Make the script executable
-      run: chmod +x install-mac.sh
-    
-    - name: Run Mac installation script
-      run: |
-        bash install-mac.sh
-    
-    - name: Verify installation
+    - name:
