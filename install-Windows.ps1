@@ -1,73 +1,156 @@
-# install-Windows.ps1
+﻿$scriptPath = $MyInvocation.MyCommand.Path
+$ScheduledTaskName = "OpenWebUIResumeInstall"
 
-# Check for Docker and its status
-if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
-    Write-Error "Docker is not installed. Please install Docker Desktop for Windows."
-    exit 1
+function Prompt-Reboot {
+    param(
+        [string]$Message = "Rebooting is required. Reboot now? [Y]es/[N]o:"
+    )
+    do {
+        $rebootChoice = Read-Host $Message
+    } while ($rebootChoice -notin @("y", "Y", "n", "N"))
+    return $rebootChoice -in @("y", "Y")
 }
 
-# Check if Docker is running
+function Ensure-Elevation {
+    if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
+        Write-Host "This script needs to run as Administrator. Relaunching with elevated privileges..."
+        Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass -File `"$scriptPath`"" -Verb RunAs
+        exit
+    }
+}
+
+Ensure-Elevation
+
+if ($env:RESUME_AFTER_REBOOT -eq "WSL") {
+    Write-Host "Resuming after WSL install reboot..."
+    $env:RESUME_AFTER_REBOOT = ""
+    [Environment]::SetEnvironmentVariable("RESUME_AFTER_REBOOT", $null, [System.EnvironmentVariableTarget]::User)
+    try {
+        Register-ScheduledTask -TaskName $ScheduledTaskName -Action (New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-ExecutionPolicy Bypass -File `"$scriptPath`"") -Trigger (New-ScheduledTaskTrigger -AtLogOn) -RunLevel Highest -Force
+    } catch {
+        Write-Warning "Failed to register resume scheduled task. $_"
+    }
+}
+
+if ($env:RESUME_AFTER_REBOOT -eq "Docker") {
+    Write-Host "Resuming after Docker install reboot..."
+    $env:RESUME_AFTER_REBOOT = ""
+    [Environment]::SetEnvironmentVariable("RESUME_AFTER_REBOOT", $null, [System.EnvironmentVariableTarget]::User)
+}
+
+function Test-WSLInstalled {
+    return (Get-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux).State -eq "Enabled"
+}
+
+function Test-DockerInstalled {
+    return Get-Command docker -ErrorAction SilentlyContinue
+}
+
+if (-not (Test-WSLInstalled)) {
+    Write-Host "WSL is not installed. Installing..."
+    dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart
+    $env:RESUME_AFTER_REBOOT = "WSL"
+    [Environment]::SetEnvironmentVariable("RESUME_AFTER_REBOOT", "WSL", [System.EnvironmentVariableTarget]::User)
+    if (Prompt-Reboot "Rebooting is required to complete WSL installation. Reboot now? [Y]es/[N]o:") {
+        Restart-Computer
+        exit
+    } else {
+        Write-Host "Please reboot manually and re-run the script to continue."
+        exit
+    }
+}
+
+if (-not (Test-DockerInstalled)) {
+    Write-Warning "Docker is not installed. Please install Docker Desktop for Windows."
+    $downloadChoice = Read-Host "Do you want to download and install Docker Desktop now? [Y]es/[N]o:"
+    if ($downloadChoice -in @("y", "Y")) {
+        $dockerInstallerPath = "$env:TEMP\DockerDesktopInstaller.exe"
+        $dockerUrl = "https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe"
+        Write-Host "Downloading Docker Desktop installer..."
+        Invoke-WebRequest -Uri $dockerUrl -OutFile $dockerInstallerPath -UseBasicParsing
+        Write-Host "Running Docker Desktop installer..."
+        Start-Process -FilePath $dockerInstallerPath -Wait
+        $env:RESUME_AFTER_REBOOT = "Docker"
+        [Environment]::SetEnvironmentVariable("RESUME_AFTER_REBOOT", "Docker", [System.EnvironmentVariableTarget]::User)
+        if (Prompt-Reboot "Rebooting is required to complete Docker installation. Reboot now? [Y]es/[N]o:") {
+            Restart-Computer
+            exit
+        } else {
+            Write-Host "Please reboot manually and re-run the script to continue."
+            exit
+        }
+    } else {
+        Write-Host "Docker installation skipped. Exiting."
+        exit
+    }
+}
+
+Write-Host "All dependencies are installed. Proceeding with the rest of the installation..."
+
+# --- Cleanup resume scheduled task ---
 try {
-    $dockerInfo = docker info
+    if (Get-ScheduledTask -TaskName $ScheduledTaskName -ErrorAction SilentlyContinue) {
+        Write-Host "`nCleaning up scheduled task '$ScheduledTaskName'..."
+        Unregister-ScheduledTask -TaskName $ScheduledTaskName -Confirm:$false
+        Write-Host "Scheduled task '$ScheduledTaskName' removed."
+    }
 } catch {
-    Write-Error "Docker is not running. Please start Docker Desktop for Windows."
-    exit 1
+    Write-Warning "Failed to remove scheduled task '$ScheduledTaskName'. You may need to remove it manually."
 }
 
-# Define variables
-$INSTALL_DIR = Get-Location
-$DATA_DIR = "$env:USERPROFILE\openwebui-ollama-data"
-$MODEL = "phi3"  # Default model
-$DOCKER_COMPOSE_YML = "$INSTALL_DIR\docker-compose.yml"
-
-# Prompt for model selection
-Write-Host "Select a model by number (1-4):"
-Write-Host "1) phi3        - ⚡⚡⚡⚡ Very Fast | 3.8B | ~4GB RAM"
-Write-Host "2) mistral     - ⚡⚡ Moderate    | 7B   | ~8GB RAM"
-Write-Host "3) llama3      - ⚡  Slower      | 8B   | ~8GB+ RAM"
-Write-Host "4) codellama   - 🐌 Slowest     | 13B  | ~12GB+ RAM"
-$ModelChoice = Read-Host "Your choice [1-4]"
-
-switch ($ModelChoice) {
-    1 { $MODEL = "phi3" }
-    2 { $MODEL = "mistral" }
-    3 { $MODEL = "llama3" }
-    4 { $MODEL = "codellama" }
-    default { Write-Host "Invalid choice, defaulting to phi3."; $MODEL = "phi3" }
+# --- Memory-based model recommendation ---
+function Get-InstalledMemoryGB {
+    try {
+        # Get the total physical memory (RAM) from the system
+        $totalMemoryBytes = (Get-CimInstance -ClassName Win32_ComputerSystem).TotalPhysicalMemory
+        $totalMemoryGB = [math]::Round($totalMemoryBytes / 1GB, 2)
+        
+        Write-Host "Detected system memory: $totalMemoryGB GB"
+        return $totalMemoryGB
+    }
+    catch {
+        Write-Host "Error while checking system memory: $_"
+        return 0
+    }
 }
 
-Write-Host "You selected: $MODEL"
+function Recommend-Models {
+    $memoryGB = Get-InstalledMemoryGB
+    if ($memoryGB -eq 0) {
+        Write-Warning "Unable to determine system memory. Exiting script."
+        exit 1
+    }
 
-# Prompt for custom data directories
-$OPENWEBUI_DATA_PATH = Read-Host "Enter path for OpenWebUI data [$env:USERPROFILE\openwebui-data]"
-if (-not $OPENWEBUI_DATA_PATH) { $OPENWEBUI_DATA_PATH = "$env:USERPROFILE\openwebui-data" }
+    Write-Host "`nDetected memory: $memoryGB GB"
 
-$OLLAMA_DATA_PATH = Read-Host "Enter path for Ollama data [$env:USERPROFILE\ollama-data]"
-if (-not $OLLAMA_DATA_PATH) { $OLLAMA_DATA_PATH = "$env:USERPROFILE\ollama-data" }
+    $models = @(
+        @{ Name = "phi3:3.8b"; RAM = 4; Speed = 1 },
+        @{ Name = "gemma:2b"; RAM = 6; Speed = 2 },
+        @{ Name = "llama3:8b"; RAM = 8; Speed = 3 },
+        @{ Name = "mistral:7b"; RAM = 10; Speed = 4 },
+        @{ Name = "llama3:8b-instruct"; RAM = 11; Speed = 5 },
+        @{ Name = "gemma:7b"; RAM = 12; Speed = 6 },
+        @{ Name = "llama2:13b"; RAM = 14; Speed = 7 },
+        @{ Name = "mistral:7b-instruct"; RAM = 15; Speed = 8 }
+    )
 
-# Create necessary directories if they do not exist
-Write-Host "Creating data directories..."
-if (-not (Test-Path $OPENWEBUI_DATA_PATH)) { New-Item -ItemType Directory -Force -Path $OPENWEBUI_DATA_PATH }
-if (-not (Test-Path $OLLAMA_DATA_PATH)) { New-Item -ItemType Directory -Force -Path $OLLAMA_DATA_PATH }
+    $recommended = $models |
+        Where-Object { $_.RAM -le $memoryGB } |
+        Sort-Object Speed |
+        Select-Object -First 5
 
-# Pull Docker images
-Write-Host "Pulling Docker images..."
-docker pull ollama/ollama
-docker pull ghcr.io/open-webui/open-webui:main
+    if ($recommended.Count -eq 0) {
+        Write-Warning "No models found that fit in available memory."
+    } else {
+        Write-Host "`nTop 5 compatible models based on available RAM:"
+        $recommended | ForEach-Object {
+            Write-Host " - $($_.Name) (Requires $_.RAM GB RAM)"
+        }
 
-# Start Ollama container
-Write-Host "Starting Ollama container..."
-docker run -d --name ollama --restart unless-stopped -v "${OLLAMA_DATA_PATH}:/root/.ollama" -p 11434:11434 --network bridge ollama/ollama
+        # Optional: prompt to auto-pull one
+        $selected = Read-Host "`nEnter a model to pull now (or press Enter to skip)"
+        if ($selected) { ollama pull $selected }
+    }
+}
 
-# Skip waiting for Ollama in CI environment, proceed directly to pulling the model and starting OpenWebUI
-
-# Pull the selected model
-Write-Host "Pulling model: $MODEL ..."
-ollama pull $MODEL
-
-# Start Open WebUI container
-Write-Host "Starting Open WebUI container..."
-docker run -d --name openwebui --restart unless-stopped -v "${OPENWEBUI_DATA_PATH}:/app/backend/data" -e "OLLAMA_API_BASE_URL=http://localhost:11434" -p 3000:3000 --network bridge ghcr.io/open-webui/open-webui:main
-
-Write-Host "✅ Setup complete!"
-Write-Host "Visit OpenWebUI at: http://localhost:3000"
+Recommend-Models
