@@ -16,14 +16,14 @@ This installer provides a seamless setup experience for **OpenWebUI** + **Ollama
 
 ## 🎯 Quick Start
 
-### One-Line Installation
+### macOS Installation
 
+#### One-Line Installation
 ```bash
 curl -fsSL https://raw.githubusercontent.com/gmoyle/OpenWebUI-Model-Installer/main/install-OpenAI-MacOS.sh | bash
 ```
 
-### Manual Installation
-
+#### Manual Installation
 1. **Download and run the installer**:
    ```bash
    wget https://raw.githubusercontent.com/gmoyle/OpenWebUI-Model-Installer/main/install-OpenAI-MacOS.sh
@@ -31,9 +31,26 @@ curl -fsSL https://raw.githubusercontent.com/gmoyle/OpenWebUI-Model-Installer/ma
    ./install-OpenAI-MacOS.sh
    ```
 
-2. **Follow the interactive prompts** to select your preferred models
-3. **Access OpenWebUI** at `http://localhost:3000`
-4. **Start chatting** with your AI models!
+### Windows Installation
+
+#### One-Line Installation (PowerShell as Administrator)
+```powershell
+Invoke-Expression (Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/gmoyle/OpenWebUI-Model-Installer/main/install-OpenAI-Windows.ps1' -UseBasicParsing).Content
+```
+
+#### Manual Installation
+1. **Open PowerShell as Administrator**
+2. **Download and run the installer**:
+   ```powershell
+   Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/gmoyle/OpenWebUI-Model-Installer/main/install-OpenAI-Windows.ps1' -OutFile 'install-OpenAI-Windows.ps1'
+   Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+   .\install-OpenAI-Windows.ps1
+   ```
+
+### After Installation
+1. **Follow the interactive prompts** to select your preferred models
+2. **Access OpenWebUI** at `http://localhost:3000`
+3. **Start chatting** with your AI models!
 
 ## 🤖 Available Models
 
@@ -91,24 +108,50 @@ Option to completely remove existing setup and start fresh if needed.
 
 ## 💻 System Requirements
 
+### macOS
 - **macOS** (Intel or Apple Silicon)
-- **Docker Desktop** (auto-installed if missing)
+- **Docker Desktop** (auto-installed via Homebrew if missing)
+- **50GB+ free disk space** (for model storage)
+- **RAM requirements** vary by model (see table above)
+- **Internet connection** for downloading models
+
+### Windows
+- **Windows 10/11** (with WSL2 support)
+- **PowerShell** (run as Administrator)
+- **Docker Desktop** (auto-installed via Chocolatey if missing)
+- **WSL2** (auto-installed if missing)
 - **50GB+ free disk space** (for model storage)
 - **RAM requirements** vary by model (see table above)
 - **Internet connection** for downloading models
 
 ## 🚀 Usage Examples
 
-### Install a Single Model
+### macOS
+
+#### Install a Single Model
 ```bash
 # Run the installer and select option 6 for phi3
 curl -fsSL https://raw.githubusercontent.com/gmoyle/OpenWebUI-Model-Installer/main/install-OpenAI-MacOS.sh | bash
 ```
 
-### Install Arena Mode (Multiple Models)
+#### Install Arena Mode (Multiple Models)
 ```bash
 # Run the installer and select option 9 for Arena setup
 curl -fsSL https://raw.githubusercontent.com/gmoyle/OpenWebUI-Model-Installer/main/install-OpenAI-MacOS.sh | bash
+```
+
+### Windows
+
+#### Install a Single Model (PowerShell as Administrator)
+```powershell
+Invoke-Expression (Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/gmoyle/OpenWebUI-Model-Installer/main/install-OpenAI-Windows.ps1' -UseBasicParsing).Content
+# Select option 6 for phi3
+```
+
+#### Install Arena Mode (PowerShell as Administrator)
+```powershell
+Invoke-Expression (Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/gmoyle/OpenWebUI-Model-Installer/main/install-OpenAI-Windows.ps1' -UseBasicParsing).Content
+# Select option 9 for Arena setup
 ```
 
 ### Add Models to Existing Installation
@@ -116,6 +159,18 @@ curl -fsSL https://raw.githubusercontent.com/gmoyle/OpenWebUI-Model-Installer/ma
 # The script automatically detects existing installations
 curl -fsSL https://raw.githubusercontent.com/gmoyle/OpenWebUI-Model-Installer/main/install-OpenAI-MacOS.sh | bash
 # Select "Install additional models" when prompted
+```
+
+## 🧹 Uninstallation
+
+### macOS
+```bash
+bash uninstall-mac.sh
+```
+
+### Windows (PowerShell as Administrator)
+```powershell
+.\uninstall-windows.ps1
 ```
 
 ---
