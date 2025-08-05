@@ -73,7 +73,8 @@ function check_existing_installation() {
     OLLAMA_RUNNING=true
   fi
   
-  if docker ps -q -f name=openwebui | grep -q .; then
+  # Check for both possible OpenWebUI container names
+  if docker ps -q -f name=openwebui | grep -q . || docker ps -q -f name=open-webui | grep -q .; then
     OPENWEBUI_RUNNING=true
   fi
   
@@ -139,8 +140,8 @@ if check_existing_installation; then
       ;;
     2)
       echo "Removing existing containers..."
-      docker stop ollama openwebui 2>/dev/null || true
-      docker rm ollama openwebui 2>/dev/null || true
+      docker stop ollama openwebui open-webui 2>/dev/null || true
+      docker rm ollama openwebui open-webui 2>/dev/null || true
       echo "Existing setup removed. Starting fresh installation..."
       EXISTING_INSTALL=false
       ;;
@@ -362,10 +363,10 @@ echo ""
 echo "💡 Tip: The first response may take a moment as models load into memory."
 echo ""
 echo "🛠️  To stop the services:"
-echo "   docker stop ollama openwebui"
+echo "   docker stop ollama open-webui"
 echo ""
 echo "🔄 To restart the services:"
-echo "   docker start ollama openwebui"
+echo "   docker start ollama open-webui"
 echo ""
 echo "🔄 To run this script again to add more models:"
 echo "   curl -fsSL https://raw.githubusercontent.com/gmoyle/OpenWebUI-Model-Installer/main/install-OpenAI-MacOS.sh | bash"
