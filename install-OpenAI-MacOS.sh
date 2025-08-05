@@ -90,8 +90,8 @@ echo ""
 echo "Select a model to install:"
 echo ""
 echo "🚀 OpenAI Models (New):"
-echo "1) gpt-oss-20b   - 🔥 Advanced reasoning | 20B  | ~24GB+ RAM"
-echo "2) gpt-oss-120b  - 🔥 Most advanced     | 120B | ~48GB+ VRAM (GPU required)"
+echo "1) gpt-oss:20b   - 🔥 Advanced reasoning | 20B  | ~16GB+ VRAM/RAM"
+echo "2) gpt-oss:120b  - 🔥 Most advanced     | 120B | ~60GB+ VRAM/RAM"
 echo ""
 echo "⚡ Ollama Models (Fast & Lightweight):"
 echo "3) phi3          - ⚡⚡⚡⚡ Very Fast      | 3.8B | ~4GB RAM"
@@ -104,15 +104,15 @@ read model_choice </dev/tty
 
 case $model_choice in
     1)
-        MODEL="gpt-oss-20b"
-        MODEL_REPO="openai/gpt-oss-20b"
-        RAM_REQUIREMENT="24GB+ RAM"
+        MODEL="gpt-oss:20b"
+        MODEL_REPO="gpt-oss:20b"
+        RAM_REQUIREMENT="16GB+ VRAM/RAM"
         MODEL_TYPE="openai"
         ;;
     2)
-        MODEL="gpt-oss-120b"
-        MODEL_REPO="openai/gpt-oss-120b"
-        RAM_REQUIREMENT="48GB+ VRAM (dedicated GPU)"
+        MODEL="gpt-oss:120b"
+        MODEL_REPO="gpt-oss:120b"
+        RAM_REQUIREMENT="60GB+ VRAM/RAM"
         MODEL_TYPE="openai"
         ;;
     3)
@@ -149,12 +149,18 @@ echo "You selected: $MODEL ($RAM_REQUIREMENT)"
 
 # Provide RAM recommendations based on system memory
 if [[ "$MODEL_TYPE" == "openai" ]]; then
-  if [[ "$MODEL" == "gpt-oss-120b" ]] && [ "$TOTAL_RAM_GB" -lt 48 ]; then
-    echo "⚠️  Warning: Your system has ${TOTAL_RAM_GB}GB RAM, but this model works best with 48GB+ VRAM."
-    echo "   Consider using gpt-oss-20b or one of the lighter Ollama models for better performance."
-  elif [[ "$MODEL" == "gpt-oss-20b" ]] && [ "$TOTAL_RAM_GB" -lt 24 ]; then
-    echo "⚠️  Warning: Your system has ${TOTAL_RAM_GB}GB RAM, but this model works best with 24GB+."
+  if [[ "$MODEL" == "gpt-oss:120b" ]] && [ "$TOTAL_RAM_GB" -lt 60 ]; then
+    echo "⚠️  Warning: Your system has ${TOTAL_RAM_GB}GB RAM, but this model works best with ≥60GB VRAM or unified memory."
+    echo "   Consider using gpt-oss:20b or one of the lighter Ollama models for better performance."
+    echo "   Note: You can offload to CPU if short on VRAM, but expect slower performance."
+  elif [[ "$MODEL" == "gpt-oss:20b" ]] && [ "$TOTAL_RAM_GB" -lt 16 ]; then
+    echo "⚠️  Warning: Your system has ${TOTAL_RAM_GB}GB RAM, but this model works best with ≥16GB VRAM or unified memory."
     echo "   Consider using one of the lighter Ollama models for better performance."
+    echo "   Note: You can offload to CPU if short on VRAM, but expect slower performance."
+  elif [[ "$MODEL" == "gpt-oss:20b" ]] && [ "$TOTAL_RAM_GB" -ge 16 ]; then
+    echo "✅ Good choice! Your ${TOTAL_RAM_GB}GB RAM should work well with gpt-oss:20b."
+  elif [[ "$MODEL" == "gpt-oss:120b" ]] && [ "$TOTAL_RAM_GB" -ge 60 ]; then
+    echo "✅ Excellent! Your ${TOTAL_RAM_GB}GB RAM is perfect for gpt-oss:120b."
   fi
 else
   # Recommendations for Ollama models
@@ -225,9 +231,8 @@ docker run -d \
   --name openwebui \
   --restart unless-stopped \
   -v "$OPENWEBUI_DATA_PATH:/app/backend/data" \
-  -e "OLLAMA_API_BASE_URL=http://localhost:11434" \
-  -p 3000:3000 \
-  --network bridge \
+  -e "OLLAMA_BASE_URL=http://host.docker.internal:11434" \
+  -p 3000:8080 \
   ghcr.io/open-webui/open-webui:main
 
 echo ""
