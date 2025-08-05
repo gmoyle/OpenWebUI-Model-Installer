@@ -79,19 +79,27 @@ function prompt_for_paths() {
 }
 
 # --- Main Script ---
-echo "🚀 OpenAI Model Installer for macOS"
-echo "=====================================\n"
+echo "🚀 AI Model Installer for macOS"
+echo "==================================\n"
 
 check_system_requirements
 check_docker
 check_ollama
 
 echo ""
-echo "Select an OpenAI model to install:"
-echo "1) gpt-oss-20b  - Optimized for personal computers (~24GB+ RAM recommended)"
-echo "2) gpt-oss-120b - Requires a dedicated GPU (~48GB+ VRAM recommended)"
+echo "Select a model to install:"
 echo ""
-printf "Your choice [1-2]: "
+echo "🚀 OpenAI Models (New):"
+echo "1) gpt-oss-20b   - 🔥 Advanced reasoning | 20B  | ~24GB+ RAM"
+echo "2) gpt-oss-120b  - 🔥 Most advanced     | 120B | ~48GB+ VRAM (GPU required)"
+echo ""
+echo "⚡ Ollama Models (Fast & Lightweight):"
+echo "3) phi3          - ⚡⚡⚡⚡ Very Fast      | 3.8B | ~4GB RAM"
+echo "4) mistral       - ⚡⚡⚡ Fast          | 7B   | ~8GB RAM"
+echo "5) llama3        - ⚡⚡ Moderate        | 8B   | ~8GB+ RAM"
+echo "6) codellama     - ⚡ Code-focused     | 13B  | ~12GB+ RAM"
+echo ""
+printf "Your choice [1-6]: "
 read model_choice </dev/tty
 
 case $model_choice in
@@ -99,11 +107,37 @@ case $model_choice in
         MODEL="gpt-oss-20b"
         MODEL_REPO="openai/gpt-oss-20b"
         RAM_REQUIREMENT="24GB+ RAM"
+        MODEL_TYPE="openai"
         ;;
     2)
         MODEL="gpt-oss-120b"
         MODEL_REPO="openai/gpt-oss-120b"
         RAM_REQUIREMENT="48GB+ VRAM (dedicated GPU)"
+        MODEL_TYPE="openai"
+        ;;
+    3)
+        MODEL="phi3"
+        MODEL_REPO="phi3"
+        RAM_REQUIREMENT="4GB RAM"
+        MODEL_TYPE="ollama"
+        ;;
+    4)
+        MODEL="mistral"
+        MODEL_REPO="mistral"
+        RAM_REQUIREMENT="8GB RAM"
+        MODEL_TYPE="ollama"
+        ;;
+    5)
+        MODEL="llama3"
+        MODEL_REPO="llama3"
+        RAM_REQUIREMENT="8GB+ RAM"
+        MODEL_TYPE="ollama"
+        ;;
+    6)
+        MODEL="codellama"
+        MODEL_REPO="codellama"
+        RAM_REQUIREMENT="12GB+ RAM"
+        MODEL_TYPE="ollama"
         ;;
     *)
         echo "Invalid choice. Exiting."
@@ -111,7 +145,27 @@ case $model_choice in
         ;;
 esac
 
-echo "You selected: $MODEL"
+echo "You selected: $MODEL ($RAM_REQUIREMENT)"
+
+# Provide RAM recommendations based on system memory
+if [[ "$MODEL_TYPE" == "openai" ]]; then
+  if [[ "$MODEL" == "gpt-oss-120b" ]] && [ "$TOTAL_RAM_GB" -lt 48 ]; then
+    echo "⚠️  Warning: Your system has ${TOTAL_RAM_GB}GB RAM, but this model works best with 48GB+ VRAM."
+    echo "   Consider using gpt-oss-20b or one of the lighter Ollama models for better performance."
+  elif [[ "$MODEL" == "gpt-oss-20b" ]] && [ "$TOTAL_RAM_GB" -lt 24 ]; then
+    echo "⚠️  Warning: Your system has ${TOTAL_RAM_GB}GB RAM, but this model works best with 24GB+."
+    echo "   Consider using one of the lighter Ollama models for better performance."
+  fi
+else
+  # Recommendations for Ollama models
+  if [[ "$MODEL" == "codellama" ]] && [ "$TOTAL_RAM_GB" -lt 12 ]; then
+    echo "⚠️  Your system has ${TOTAL_RAM_GB}GB RAM. Consider phi3 or mistral for better performance."
+  elif [[ "$MODEL" == "llama3" || "$MODEL" == "mistral" ]] && [ "$TOTAL_RAM_GB" -lt 8 ]; then
+    echo "⚠️  Your system has ${TOTAL_RAM_GB}GB RAM. Consider phi3 for better performance."
+  elif [[ "$MODEL" == "phi3" ]]; then
+    echo "✅ Great choice! Phi3 is optimized for systems with limited resources."
+  fi
+fi
 echo ""
 
 prompt_for_paths
@@ -144,12 +198,22 @@ echo "Waiting for Ollama to start..."
 sleep 10
 
 echo ""
-echo "Attempting to pull the model from Hugging Face via Ollama..."
+if [[ "$MODEL_TYPE" == "openai" ]]; then
+  echo "Attempting to pull the OpenAI model from Hugging Face via Ollama..."
+else
+  echo "Attempting to pull the model via Ollama..."
+fi
+
 if ollama pull "$MODEL_REPO"; then
   echo "✅ Model '$MODEL' pulled successfully."
 else
   echo "❌ Failed to pull the model."
-  echo "Please ensure you have enough disk space and that the model repository '$MODEL_REPO' is correct."
+  if [[ "$MODEL_TYPE" == "openai" ]]; then
+    echo "Please ensure you have enough disk space and internet connectivity."
+    echo "The OpenAI models are large and may take time to download."
+  else
+    echo "Please ensure you have enough disk space and that the model '$MODEL_REPO' is available."
+  fi
   exit 1
 fi
 echo ""
