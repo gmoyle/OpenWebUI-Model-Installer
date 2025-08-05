@@ -30,18 +30,24 @@ function check_system_requirements() {
   TOTAL_RAM_GB=$(( $(sysctl -n hw.memsize) / 1024 / 1024 / 1024 ))
   echo "💻 Available RAM: ${TOTAL_RAM_GB}GB"
   
-  # Check available disk space (in GB)
-  AVAILABLE_DISK_GB=$(df -BG "$HOME" | awk 'NR==2 {print $4}' | sed 's/G//')
-  echo "💾 Available disk space: ${AVAILABLE_DISK_GB}GB"
-  
-  if [ "$AVAILABLE_DISK_GB" -lt 50 ]; then
-    echo "⚠️ Warning: You have less than 50GB of available disk space."
-    echo "   The model download may require significant storage."
-    read -p "Do you want to continue? (y/N): " continue_choice
-    if [[ ! "$continue_choice" =~ ^[Yy]$ ]]; then
-      echo "Installation cancelled."
-      exit 1
+  # Check available disk space (in GB) - macOS compatible
+  AVAILABLE_DISK_GB=$(df -h "$HOME" | awk 'NR==2 {print $4}' | sed 's/[^0-9]*//g')
+  if [[ "$AVAILABLE_DISK_GB" =~ ^[0-9]+$ ]]; then
+    echo "💾 Available disk space: ${AVAILABLE_DISK_GB}GB"
+    
+    if [ "$AVAILABLE_DISK_GB" -lt 50 ]; then
+      echo "⚠️ Warning: You have less than 50GB of available disk space."
+      echo "   The model download may require significant storage."
+      printf "Do you want to continue? (y/N): "
+      read continue_choice </dev/tty
+      if [[ ! "$continue_choice" =~ ^[Yy]$ ]]; then
+        echo "Installation cancelled."
+        exit 1
+      fi
     fi
+  else
+    echo "💾 Available disk space: Unable to determine"
+    echo "⚠️ Please ensure you have at least 50GB of free disk space"
   fi
 }
 
@@ -59,10 +65,12 @@ function check_ollama() {
 }
 
 function prompt_for_paths() {
-  read -e -p "Enter path for OpenWebUI data [$DEFAULT_OPENWEBUI_DATA]: " OPENWEBUI_DATA_PATH
+  printf "Enter path for OpenWebUI data [$DEFAULT_OPENWEBUI_DATA]: "
+  read OPENWEBUI_DATA_PATH </dev/tty
   OPENWEBUI_DATA_PATH=${OPENWEBUI_DATA_PATH:-$DEFAULT_OPENWEBUI_DATA}
 
-  read -e -p "Enter path for Ollama data [$DEFAULT_OLLAMA_DATA]: " OLLAMA_DATA_PATH
+  printf "Enter path for Ollama data [$DEFAULT_OLLAMA_DATA]: "
+  read OLLAMA_DATA_PATH </dev/tty
   OLLAMA_DATA_PATH=${OLLAMA_DATA_PATH:-$DEFAULT_OLLAMA_DATA}
 
   # Expand tilde
@@ -83,7 +91,8 @@ echo "Select an OpenAI model to install:"
 echo "1) gpt-oss-20b  - Optimized for personal computers (~24GB+ RAM recommended)"
 echo "2) gpt-oss-120b - Requires a dedicated GPU (~48GB+ VRAM recommended)"
 echo ""
-read -p "Your choice [1-2]: " model_choice
+printf "Your choice [1-2]: "
+read model_choice </dev/tty
 
 case $model_choice in
     1)
