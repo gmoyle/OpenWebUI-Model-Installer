@@ -15,7 +15,7 @@ function check_docker() {
     exit 1
   fi
   
-  if ! docker info >/dev/null 2>&1; then
+  if ! docker info > /dev/null 2>&1; then
     echo "❌ Docker is not running."
     echo "Please start Docker Desktop and rerun the script."
     exit 1
@@ -64,6 +64,36 @@ function check_ollama() {
   echo "✅ Ollama is available."
 }
 
+function check_existing_installation() {
+  OLLAMA_RUNNING=false
+  OPENWEBUI_RUNNING=false
+  
+  # Check if containers exist and are running
+  if docker ps -q -f name=ollama | grep -q .; then
+    OLLAMA_RUNNING=true
+  fi
+  
+  if docker ps -q -f name=openwebui | grep -q .; then
+    OPENWEBUI_RUNNING=true
+  fi
+  
+  if [ "$OLLAMA_RUNNING" = true ] && [ "$OPENWEBUI_RUNNING" = true ]; then
+    return 0  # Installation exists
+  else
+    return 1  # No existing installation
+  fi
+}
+
+function show_existing_models() {
+  echo "📚 Currently installed models:"
+  if docker exec ollama ollama list 2>/dev/null | grep -v "NAME" | grep -v "^$"; then
+    echo ""
+  else
+    echo "   No models installed yet."
+    echo ""
+  fi
+}
+
 function prompt_for_paths() {
   printf "Enter path for OpenWebUI data [$DEFAULT_OPENWEBUI_DATA]: "
   read OPENWEBUI_DATA_PATH </dev/tty
@@ -80,64 +110,133 @@ function prompt_for_paths() {
 
 # --- Main Script ---
 echo "🚀 AI Model Installer for macOS"
-echo "==================================\n"
+echo "=================================="
+echo ""
 
 check_system_requirements
 check_docker
 check_ollama
 
-echo ""
+# Check if installation already exists
+if check_existing_installation; then
+  echo "✅ Found existing OpenWebUI + Ollama installation!"
+  echo "   OpenWebUI: http://localhost:3000"
+  echo "   Ollama API: http://localhost:11434"
+  echo ""
+  show_existing_models
+  echo "What would you like to do?"
+  echo "1) Install additional models"
+  echo "2) Fresh install (remove existing setup)"
+  echo "3) Exit"
+  echo ""
+  printf "Your choice [1-3]: "
+  read action_choice </dev/tty
+  echo ""
+  
+  case $action_choice in
+    1)
+      EXISTING_INSTALL=true
+      ;;
+    2)
+      echo "Removing existing containers..."
+      docker stop ollama openwebui 2>/dev/null || true
+      docker rm ollama openwebui 2>/dev/null || true
+      echo "Existing setup removed. Starting fresh installation..."
+      EXISTING_INSTALL=false
+      ;;
+    3)
+      echo "Exiting..."
+      exit 0
+      ;;
+    *)
+      echo "Invalid choice. Exiting."
+      exit 1
+      ;;
+  esac
+else
+  EXISTING_INSTALL=false
+fi
+
 echo "Select a model to install:"
 echo ""
-echo "🚀 OpenAI Models (New):"
+echo "🚀 OpenAI Models (Advanced):"
 echo "1) gpt-oss:20b   - 🔥 Advanced reasoning | 20B  | ~16GB+ VRAM/RAM"
 echo "2) gpt-oss:120b  - 🔥 Most advanced     | 120B | ~60GB+ VRAM/RAM"
 echo ""
-echo "⚡ Ollama Models (Fast & Lightweight):"
-echo "3) phi3          - ⚡⚡⚡⚡ Very Fast      | 3.8B | ~4GB RAM"
-echo "4) mistral       - ⚡⚡⚡ Fast          | 7B   | ~8GB RAM"
-echo "5) llama3        - ⚡⚡ Moderate        | 8B   | ~8GB+ RAM"
-echo "6) codellama     - ⚡ Code-focused     | 13B  | ~12GB+ RAM"
+echo "⚡ Premium Models (Fast & Capable):"
+echo "3) mistral       - ⚡⚡⚡ Fast          | 7B   | ~8GB RAM"
+echo "4) llama3.2      - ⚡⚡ Latest Meta     | 3B   | ~4GB RAM"
+echo "5) qwen2.5:3b    - ⚡⚡ Great reasoning | 3B   | ~4GB RAM"
 echo ""
-printf "Your choice [1-6]: "
+echo "🏃 Lightweight Models (Very Fast):"
+echo "6) phi3          - ⚡⚡⚡⚡ Very Fast      | 3.8B | ~4GB RAM"
+echo "7) gemma2:2b     - ⚡⚡⚡⚡ Ultra Fast    | 2B   | ~3GB RAM"
+echo ""
+echo "🛠️  Specialized Models:"
+echo "8) codellama     - 💻 Code-focused     | 13B  | ~12GB+ RAM"
+echo "9) Install multiple models (Arena mode setup)"
+echo ""
+printf "Your choice [1-9]: "
 read model_choice </dev/tty
 
 case $model_choice in
     1)
-        MODEL="gpt-oss:20b"
-        MODEL_REPO="gpt-oss:20b"
-        RAM_REQUIREMENT="16GB+ VRAM/RAM"
-        MODEL_TYPE="openai"
+        MODELS=("gpt-oss:20b")
+        RAM_REQUIREMENTS=("16GB+ VRAM/RAM")
+        MODEL_TYPES=("openai")
         ;;
     2)
-        MODEL="gpt-oss:120b"
-        MODEL_REPO="gpt-oss:120b"
-        RAM_REQUIREMENT="60GB+ VRAM/RAM"
-        MODEL_TYPE="openai"
+        MODELS=("gpt-oss:120b")
+        RAM_REQUIREMENTS=("60GB+ VRAM/RAM")
+        MODEL_TYPES=("openai")
         ;;
     3)
-        MODEL="phi3"
-        MODEL_REPO="phi3"
-        RAM_REQUIREMENT="4GB RAM"
-        MODEL_TYPE="ollama"
+        MODELS=("mistral")
+        RAM_REQUIREMENTS=("8GB RAM")
+        MODEL_TYPES=("ollama")
         ;;
     4)
-        MODEL="mistral"
-        MODEL_REPO="mistral"
-        RAM_REQUIREMENT="8GB RAM"
-        MODEL_TYPE="ollama"
+        MODELS=("llama3.2")
+        RAM_REQUIREMENTS=("4GB RAM")
+        MODEL_TYPES=("ollama")
         ;;
     5)
-        MODEL="llama3"
-        MODEL_REPO="llama3"
-        RAM_REQUIREMENT="8GB+ RAM"
-        MODEL_TYPE="ollama"
+        MODELS=("qwen2.5:3b")
+        RAM_REQUIREMENTS=("4GB RAM")
+        MODEL_TYPES=("ollama")
         ;;
     6)
-        MODEL="codellama"
-        MODEL_REPO="codellama"
-        RAM_REQUIREMENT="12GB+ RAM"
-        MODEL_TYPE="ollama"
+        MODELS=("phi3")
+        RAM_REQUIREMENTS=("4GB RAM")
+        MODEL_TYPES=("ollama")
+        ;;
+    7)
+        MODELS=("gemma2:2b")
+        RAM_REQUIREMENTS=("3GB RAM")
+        MODEL_TYPES=("ollama")
+        ;;
+    8)
+        MODELS=("codellama")
+        RAM_REQUIREMENTS=("12GB+ RAM")
+        MODEL_TYPES=("ollama")
+        ;;
+    9)
+        if [ "$TOTAL_RAM_GB" -ge 16 ]; then
+          MODELS=("phi3" "gemma2:2b" "llama3.2" "qwen2.5:3b" "mistral")
+          RAM_REQUIREMENTS=("4GB" "3GB" "4GB" "4GB" "8GB")
+          MODEL_TYPES=("ollama" "ollama" "ollama" "ollama" "ollama")
+          echo "🏟️  Installing Arena setup (5 models for comparison)"
+        elif [ "$TOTAL_RAM_GB" -ge 12 ]; then
+          MODELS=("phi3" "gemma2:2b" "llama3.2" "qwen2.5:3b")
+          RAM_REQUIREMENTS=("4GB" "3GB" "4GB" "4GB")
+          MODEL_TYPES=("ollama" "ollama" "ollama" "ollama")
+          echo "🏟️  Installing Arena setup (4 models - optimized for your RAM)"
+        else
+          MODELS=("phi3" "gemma2:2b" "llama3.2")
+          RAM_REQUIREMENTS=("4GB" "3GB" "4GB")
+          MODEL_TYPES=("ollama" "ollama" "ollama")
+          echo "🏟️  Installing Arena setup (3 lightweight models for your system)"
+        fi
         ;;
     *)
         echo "Invalid choice. Exiting."
@@ -145,114 +244,129 @@ case $model_choice in
         ;;
 esac
 
-echo "You selected: $MODEL ($RAM_REQUIREMENT)"
-
-# Provide RAM recommendations based on system memory
-if [[ "$MODEL_TYPE" == "openai" ]]; then
-  if [[ "$MODEL" == "gpt-oss:120b" ]] && [ "$TOTAL_RAM_GB" -lt 60 ]; then
-    echo "⚠️  Warning: Your system has ${TOTAL_RAM_GB}GB RAM, but this model works best with ≥60GB VRAM or unified memory."
-    echo "   Consider using gpt-oss:20b or one of the lighter Ollama models for better performance."
-    echo "   Note: You can offload to CPU if short on VRAM, but expect slower performance."
-  elif [[ "$MODEL" == "gpt-oss:20b" ]] && [ "$TOTAL_RAM_GB" -lt 16 ]; then
-    echo "⚠️  Warning: Your system has ${TOTAL_RAM_GB}GB RAM, but this model works best with ≥16GB VRAM or unified memory."
-    echo "   Consider using one of the lighter Ollama models for better performance."
-    echo "   Note: You can offload to CPU if short on VRAM, but expect slower performance."
-  elif [[ "$MODEL" == "gpt-oss:20b" ]] && [ "$TOTAL_RAM_GB" -ge 16 ]; then
-    echo "✅ Good choice! Your ${TOTAL_RAM_GB}GB RAM should work well with gpt-oss:20b."
-  elif [[ "$MODEL" == "gpt-oss:120b" ]] && [ "$TOTAL_RAM_GB" -ge 60 ]; then
-    echo "✅ Excellent! Your ${TOTAL_RAM_GB}GB RAM is perfect for gpt-oss:120b."
-  fi
+# Show selection summary
+if [ ${#MODELS[@]} -eq 1 ]; then
+  echo "You selected: ${MODELS[0]} (${RAM_REQUIREMENTS[0]})"
 else
-  # Recommendations for Ollama models
-  if [[ "$MODEL" == "codellama" ]] && [ "$TOTAL_RAM_GB" -lt 12 ]; then
-    echo "⚠️  Your system has ${TOTAL_RAM_GB}GB RAM. Consider phi3 or mistral for better performance."
-  elif [[ "$MODEL" == "llama3" || "$MODEL" == "mistral" ]] && [ "$TOTAL_RAM_GB" -lt 8 ]; then
-    echo "⚠️  Your system has ${TOTAL_RAM_GB}GB RAM. Consider phi3 for better performance."
-  elif [[ "$MODEL" == "phi3" ]]; then
-    echo "✅ Great choice! Phi3 is optimized for systems with limited resources."
-  fi
+  echo "You selected ${#MODELS[@]} models for Arena mode:"
+  for i in "${!MODELS[@]}"; do
+    echo "  - ${MODELS[$i]} (${RAM_REQUIREMENTS[$i]})"
+  done
 fi
 echo ""
 
-prompt_for_paths
-
-echo ""
-echo "Creating data directories..."
-mkdir -p "$OPENWEBUI_DATA_PATH"
-mkdir -p "$OLLAMA_DATA_PATH"
-
-echo ""
-echo "Pulling Docker images..."
-docker pull ollama/ollama
-docker pull ghcr.io/open-webui/open-webui:main
-
-echo ""
-echo "Starting Ollama container..."
-# Remove existing container if it exists
-docker rm -f ollama 2>/dev/null || true
-
-docker run -d \
-  --name ollama \
-  --restart unless-stopped \
-  -v "$OLLAMA_DATA_PATH:/root/.ollama" \
-  -p 11434:11434 \
-  --network bridge \
-  ollama/ollama
-
-# Wait for Ollama to be ready
-echo "Waiting for Ollama to start..."
-sleep 10
-
-echo ""
-if [[ "$MODEL_TYPE" == "openai" ]]; then
-  echo "Attempting to pull the OpenAI model from Hugging Face via Ollama..."
-else
-  echo "Attempting to pull the model via Ollama..."
+# Set up containers only if not existing installation
+if [ "$EXISTING_INSTALL" = false ]; then
+  prompt_for_paths
+  
+  echo ""
+  echo "Creating data directories..."
+  mkdir -p "$OPENWEBUI_DATA_PATH"
+  mkdir -p "$OLLAMA_DATA_PATH"
+  
+  echo ""
+  echo "Pulling Docker images..."
+  docker pull ollama/ollama
+  docker pull ghcr.io/open-webui/open-webui:main
+  
+  echo ""
+  echo "Starting Ollama container..."
+  docker run -d \
+    --name ollama \
+    --restart unless-stopped \
+    -v "$OLLAMA_DATA_PATH:/root/.ollama" \
+    -p 11434:11434 \
+    ollama/ollama
+  
+  # Wait for Ollama to be ready
+  echo "Waiting for Ollama to start..."
+  sleep 10
+  
+  echo ""
+  echo "Starting Open WebUI container..."
+  docker run -d \
+    --name openwebui \
+    --restart unless-stopped \
+    -v "$OPENWEBUI_DATA_PATH:/app/backend/data" \
+    -e "OLLAMA_BASE_URL=http://host.docker.internal:11434" \
+    -p 3000:8080 \
+    ghcr.io/open-webui/open-webui:main
+  
+  echo "Waiting for OpenWebUI to start..."
+  sleep 5
 fi
 
-if ollama pull "$MODEL_REPO"; then
-  echo "✅ Model '$MODEL' pulled successfully."
-else
-  echo "❌ Failed to pull the model."
+# Install models
+echo ""
+echo "Installing selected models..."
+SUCCESSFUL_MODELS=()
+FAILED_MODELS=()
+
+for i in "${!MODELS[@]}"; do
+  MODEL="${MODELS[$i]}"
+  MODEL_TYPE="${MODEL_TYPES[$i]}"
+  
+  echo ""
   if [[ "$MODEL_TYPE" == "openai" ]]; then
-    echo "Please ensure you have enough disk space and internet connectivity."
-    echo "The OpenAI models are large and may take time to download."
+    echo "Installing OpenAI model: $MODEL"
   else
-    echo "Please ensure you have enough disk space and that the model '$MODEL_REPO' is available."
+    echo "Installing model: $MODEL"
   fi
-  exit 1
+  
+  if docker exec ollama ollama pull "$MODEL"; then
+    echo "✅ Model '$MODEL' installed successfully."
+    SUCCESSFUL_MODELS+=("$MODEL")
+  else
+    echo "❌ Failed to install model '$MODEL'."
+    FAILED_MODELS+=("$MODEL")
+  fi
+done
+
+echo ""
+echo "🎉 Installation Summary"
+echo "======================="
+echo ""
+if [ ${#SUCCESSFUL_MODELS[@]} -gt 0 ]; then
+  echo "✅ Successfully installed models:"
+  for model in "${SUCCESSFUL_MODELS[@]}"; do
+    echo "   - $model"
+  done
 fi
-echo ""
-echo "Starting Open WebUI container..."
-# Remove existing container if it exists
-docker rm -f openwebui 2>/dev/null || true
 
-docker run -d \
-  --name openwebui \
-  --restart unless-stopped \
-  -v "$OPENWEBUI_DATA_PATH:/app/backend/data" \
-  -e "OLLAMA_BASE_URL=http://host.docker.internal:11434" \
-  -p 3000:8080 \
-  ghcr.io/open-webui/open-webui:main
+if [ ${#FAILED_MODELS[@]} -gt 0 ]; then
+  echo ""
+  echo "❌ Failed to install models:"
+  for model in "${FAILED_MODELS[@]}"; do
+    echo "   - $model"
+  done
+  echo "   Please check your internet connection and disk space."
+fi
 
 echo ""
-echo "🎉 Setup complete!"
-echo "=================="
-echo ""
-echo "✅ Model: $MODEL ($RAM_REQUIREMENT)"
 echo "✅ OpenWebUI: http://localhost:3000"
 echo "✅ Ollama API: http://localhost:11434"
 echo ""
+if [ ${#SUCCESSFUL_MODELS[@]} -gt 1 ]; then
+  echo "🏟️  Arena Mode Ready! You can now compare multiple models side-by-side."
+  echo ""
+fi
 echo "📋 Next steps:"
 echo "1. Open your web browser and go to http://localhost:3000"
 echo "2. Create an account or sign in"
-echo "3. Start chatting with your $MODEL model!"
+if [ ${#SUCCESSFUL_MODELS[@]} -gt 1 ]; then
+  echo "3. Try Arena mode to compare your models!"
+else
+  echo "3. Start chatting with your model!"
+fi
 echo ""
-echo "💡 Tip: The first response may take a moment as the model loads into memory."
+echo "💡 Tip: The first response may take a moment as models load into memory."
 echo ""
 echo "🛠️  To stop the services:"
 echo "   docker stop ollama openwebui"
 echo ""
 echo "🔄 To restart the services:"
 echo "   docker start ollama openwebui"
+echo ""
+echo "🔄 To run this script again to add more models:"
+echo "   curl -fsSL https://raw.githubusercontent.com/gmoyle/OpenWebUI-Model-Installer/main/install-OpenAI-MacOS.sh | bash"
 
