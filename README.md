@@ -1,87 +1,122 @@
-# OpenWebUI + Ollama Installation and Uninstallation Scripts
+# 🚀 OpenWebUI Model Installer
 
-This repository provides **installation** and **uninstallation scripts** for setting up and removing the **OpenWebUI** and **Ollama** containers on both **Windows** and **Mac** operating systems. The scripts automate the process of setting up the Docker environment, installing necessary dependencies, and ensuring everything is ready for use.
+**The ultimate one-click installer for OpenWebUI with advanced AI models including OpenAI's latest local models!**
 
-## Table of Contents
+This installer provides a seamless setup experience for **OpenWebUI** + **Ollama** with support for cutting-edge AI models, including OpenAI's newly released laptop-compatible models (`gpt-oss:20b` and `gpt-oss:120b`) alongside popular lightweight models for **Arena mode** comparisons.
 
-- [Installation](#installation)
-  - [Windows](#windows)
-  - [Mac](#mac)
-- [Uninstallation](#uninstallation)
-  - [Windows](#windows-1)
-  - [Mac](#mac-1)
-- [Troubleshooting](#troubleshooting)
-- [FAQ](#faq)
+## ✨ Features
 
----
+🔥 **Latest OpenAI Models**: First-class support for `gpt-oss:20b` and `gpt-oss:120b`  
+🏟️ **Arena Mode Ready**: Install multiple models for side-by-side comparisons  
+🧠 **Smart Installation Detection**: Add models to existing setups without reinstalling  
+⚡ **8 Optimized Models**: From ultra-fast 2B to advanced 120B parameter models  
+💻 **macOS Optimized**: Native compatibility with Apple Silicon and Intel Macs  
+🔄 **Incremental Updates**: Run the script multiple times to build your model collection  
+📊 **RAM-Aware Recommendations**: Automatic model suggestions based on your system specs
 
-## Installation
+## 🎯 Quick Start
 
-### Windows
+### One-Line Installation
 
-1. **Automatic Docker Installation**: The script will check if Docker is installed. If it's not, the script will automatically install Docker Desktop using **Chocolatey**.
-2. **Automatic WSL2 Installation**: The script will ensure **WSL2** is installed, or it will install it automatically if missing.
-3. **Automatic Setup**: The script will configure Docker, WSL2, and all dependencies automatically. There’s no need to manually install anything.
-4. **Run the installation script**:
-    - Download the Windows installation script (`install-windows.ps1`).
-    - Open **PowerShell** as **Administrator**.
-    - Run the script:
-      ```powershell
-      Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
-      ./install-windows.ps1
-      ```
+```bash
+curl -fsSL https://raw.githubusercontent.com/gmoyle/OpenWebUI-Model-Installer/main/install-OpenAI-MacOS.sh | bash
+```
 
-The script will handle everything, including Docker container setup, directory creation, and model selection based on your available memory.
+### Manual Installation
 
-### Mac
+1. **Download and run the installer**:
+   ```bash
+   wget https://raw.githubusercontent.com/gmoyle/OpenWebUI-Model-Installer/main/install-OpenAI-MacOS.sh
+   chmod +x install-OpenAI-MacOS.sh
+   ./install-OpenAI-MacOS.sh
+   ```
 
-1. **Automatic Docker Installation**: The script will check if Docker is installed. If it's not, the script will automatically prompt you to install Docker.
-2. **Automatic Setup**: The script will install all necessary dependencies using **Homebrew**.
-3. **Run the installation script**:
-    - Download the Mac installation script (`install-mac.sh`).
-    - Open **Terminal** and navigate to the directory where you saved the script.
-    - Run the script:
-      ```bash
-      bash install-mac.sh
-      ```
+2. **Follow the interactive prompts** to select your preferred models
+3. **Access OpenWebUI** at `http://localhost:3000`
+4. **Start chatting** with your AI models!
 
-The script will automatically set up Docker, configure containers, and start the services for **OpenWebUI** and **Ollama**.
-<img width="485" height="212" alt="image" src="https://github.com/user-attachments/assets/98184fc5-66dc-4660-bd8f-235d308dab26" />
+## 🤖 Available Models
 
----
+### 🚀 OpenAI Models (Advanced Reasoning)
+| Model | Size | RAM Required | Description |
+|-------|------|--------------|-------------|
+| `gpt-oss:20b` | 13 GB | 16GB+ | Advanced reasoning and complex problem-solving |
+| `gpt-oss:120b` | 65 GB | 60GB+ | Most advanced model with superior capabilities |
 
-## Uninstallation
+### ⚡ Premium Models (Fast & Capable)
+| Model | Size | RAM Required | Description |
+|-------|------|--------------|-------------|
+| `mistral` | 4.4 GB | 8GB | Fast, reliable European model with great performance |
+| `llama3.2` | 2.0 GB | 4GB | Latest Meta model with improved efficiency |
+| `qwen2.5:3b` | 1.9 GB | 4GB | Alibaba's model excellent for reasoning tasks |
 
-### Windows
+### 🏃 Lightweight Models (Ultra Fast)
+| Model | Size | RAM Required | Description |
+|-------|------|--------------|-------------|
+| `phi3` | 2.2 GB | 4GB | Microsoft's optimized model for resource efficiency |
+| `gemma2:2b` | 1.6 GB | 3GB | Google's ultra-fast model for quick responses |
 
-1. **Run the uninstallation script**:
-    - Download the Windows uninstallation script (`uninstall-windows.ps1`).
-    - Open **PowerShell** as **Administrator**.
-    - Run the script:
-      ```powershell
-      Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
-      ./uninstall-windows.ps1
-      ```
+### 🛠️ Specialized Models
+| Model | Size | RAM Required | Description |
+|-------|------|--------------|-------------|
+| `codellama` | 3.8 GB | 12GB+ | Meta's specialized model for code generation and programming |
 
-The uninstaller will:
-- Stop and remove Docker containers for **OpenWebUI** and **Ollama**.
-- Remove Docker volumes and the data directory.
-- Optionally, it will remove Docker Desktop if no other containers are running.
+## 🏟️ Arena Mode
 
-### Mac
+The installer includes an **Arena Mode** setup that automatically selects the best combination of models for your system:
 
-1. **Run the uninstallation script**:
-    - Download the Mac uninstallation script (`uninstall-mac.sh`).
-    - Open **Terminal** and navigate to the directory where you saved the script.
-    - Run the script:
-      ```bash
-      bash uninstall-mac.sh
-      ```
+- **24GB+ RAM**: 5 models (phi3, gemma2:2b, llama3.2, qwen2.5:3b, mistral)
+- **16-24GB RAM**: 4 models (optimized selection)
+- **12-16GB RAM**: 3 lightweight models
 
-The uninstaller will:
-- Stop and remove Docker containers for **OpenWebUI** and **Ollama**.
-- Remove Docker volumes and data directories.
-- Optionally, it will remove Docker if no other containers are using it.
+This allows you to compare different models side-by-side in OpenWebUI's Arena interface!
+
+## 🔄 Smart Installation Management
+
+### First Time Installation
+- Automatically installs Docker (if needed)
+- Sets up OpenWebUI and Ollama containers
+- Installs your selected models
+- Provides complete setup instructions
+
+### Adding More Models
+Run the script again to:
+- Detect your existing installation
+- Add new models without reinstalling containers
+- Maintain all your existing data and configurations
+- Build your model collection incrementally
+
+### Fresh Installation
+Option to completely remove existing setup and start fresh if needed.
+
+## 💻 System Requirements
+
+- **macOS** (Intel or Apple Silicon)
+- **Docker Desktop** (auto-installed if missing)
+- **50GB+ free disk space** (for model storage)
+- **RAM requirements** vary by model (see table above)
+- **Internet connection** for downloading models
+
+## 🚀 Usage Examples
+
+### Install a Single Model
+```bash
+# Run the installer and select option 6 for phi3
+curl -fsSL https://raw.githubusercontent.com/gmoyle/OpenWebUI-Model-Installer/main/install-OpenAI-MacOS.sh | bash
+```
+
+### Install Arena Mode (Multiple Models)
+```bash
+# Run the installer and select option 9 for Arena setup
+curl -fsSL https://raw.githubusercontent.com/gmoyle/OpenWebUI-Model-Installer/main/install-OpenAI-MacOS.sh | bash
+```
+
+### Add Models to Existing Installation
+```bash
+# The script automatically detects existing installations
+curl -fsSL https://raw.githubusercontent.com/gmoyle/OpenWebUI-Model-Installer/main/install-OpenAI-MacOS.sh | bash
+# Select "Install additional models" when prompted
+```
 
 ---
 
